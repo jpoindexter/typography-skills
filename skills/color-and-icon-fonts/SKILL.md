@@ -32,9 +32,9 @@ text face (`typeface-selection`).
 
 ## 3. Invariant principles
 
-- **Colour fonts degrade, they don't fail — but the degradation is the design
-  decision.** Plan what the flat-colour fallback looks like, because some readers
-  will only ever see that.
+- **Fallback is font- and renderer-dependent.** A usable base-glyph outline can
+  provide monochrome rendering; its presence is not guaranteed. Verify the actual
+  result and provide a readable alternative when needed.
 - **Never let colour carry meaning alone.** Same rule as everywhere else; a colour
   font doesn't exempt you from WCAG 1.4.1.
 - **Icons that carry meaning need an accessible name**; icons that are decorative
@@ -69,13 +69,13 @@ further.
 **Colour fonts** keep everything in one file — no duplicated text — at the cost of
 per-layer control.
 
-| Format | State in 2026 |
+| Format | Capability and deployment checks |
 |---|---|
-| **COLRv1** | The one to use. Paint graph with linear/radial/sweep gradients, transforms, compositing, blending, and **variation data for the colour construction itself** — so variable colour fonts are real. Renders in Chromium, Firefox, Samsung Internet. **Safari falls back to a single solid colour.** |
-| **OT-SVG** | Avoid for new work. **Chromium has stated it will never support it**, and Firefox has signalled it may drop it. |
+| **COLRv1** | Paint graphs support gradients, transforms, compositing and variable colour construction. Check current target-browser support and the actual font; unsupported rendering does not guarantee a readable monochrome glyph. |
+| **OT-SVG** | Check current format support in every target engine before choosing it. An unsupported font may render outlines, another font, or missing glyphs; do not assume flat colour or predict future support. |
 | **sbix / CBDT (bitmap strikes)** | Raster; resolution-bound. Mostly emoji legacy. |
 
-**`font-palette` is the reason COLR matters.** It lets a page select a palette from
+**`font-palette` controls available font palettes.** It lets a page select a palette from
 a colour font, and `@font-palette-values` lets you override individual entries or
 define your own:
 
@@ -87,8 +87,10 @@ define your own:
 .headline { font-family: "Nabla"; font-palette: --brand; }
 ```
 
-This is COLR-only. It means one font file can be re-themed per brand or per dark
-mode without shipping another file.
+CPAL palettes can be used by COLR and OpenType-SVG; SVG may also hard-code colours
+that palette overrides cannot change. Verify CSS support, font-format support and
+the font's actual palette entries separately. Where supported, one file can serve
+brand or dark-mode variants.
 
 ### Icon fonts vs. SVG
 
@@ -99,7 +101,7 @@ support, and they carry real defects:
 |---|---|
 | Glyphs live in the Private Use Area | Screen readers announce garbage or nothing |
 | Fails as a font failure | Font blocked/slow → missing or tofu icons, not degraded ones |
-| Single colour only (unless COLR) | No multi-tone icons |
+| Ordinary monochrome icon fonts | Multi-tone icons require a supported colour-font format |
 | Anti-aliased as text | Icons shift with font smoothing, not pixel-tuned |
 | Whole set ships as one file | Pay for 300 icons to use 12 |
 
@@ -122,23 +124,25 @@ do not control the artwork; they carry a screen-reader name that is often verbos
 
 | Pattern | Cause | Fix |
 |---|---|---|
-| Colour font renders flat black in Safari | COLRv1 unsupported there | Design the single-colour fallback deliberately |
-| Colour font renders flat everywhere | OT-SVG in Chromium | Use COLRv1 |
+| Colour font renders flat or disappears in a target browser | Possible format support, loading or glyph-coverage problem | Inspect the actual font and renderer; verify a readable fallback |
+| Colour font ignores palette overrides | Unsupported format, missing palette or hard-coded colours | Check CSS, format and font palette data independently |
 | Layered headline is illegible without colour | Layers only resolve when combined | Ensure one layer carries the letterform |
 | Screen reader reads the headline three times | Duplicated layer text nodes | `aria-hidden` on all but one |
 | Icons vanish on slow connections | Icon font failed to load | SVG, or a fallback |
 | Screen reader says "private use area 61489" | Icon glyph with no accessible name | `aria-hidden` + text label, or `role="img"` + `aria-label` |
-| Icon-only button unusable by keyboard/AT | No accessible name | Add one |
+| Icon-only button has no announced purpose | No accessible name | Name the control and hide its decorative glyph |
+| Icon control cannot be operated by keyboard | Incorrect control semantics or interaction | Prefer a native button; verify focus and keyboard activation separately |
 | 400 KB icon font for 12 icons | Whole set shipped | SVG sprite or subset |
 | Emoji means "done" and nothing else does | Meaning carried by glyph alone | Add text |
-| Colour font can't be re-themed for dark mode | Palette baked in | `font-palette` / `@font-palette-values` |
+| Colour font cannot be re-themed for dark mode | Colours may not use an overridable palette | Test `font-palette` / `@font-palette-values`; choose another asset if needed |
 
 ## 6. Evaluation procedure
 
 1. State what the colour or icon is **for**. Decorative → hide it from AT.
    Meaningful → it needs a text equivalent.
-2. Render in a browser **without** COLRv1 support (Safari) and confirm the flat
-   fallback is acceptable, not broken.
+2. Check current support for the chosen format, then render the actual font in
+   target browsers, including an unsupported-format case where relevant. Verify
+   what renders rather than assuming monochrome fallback.
 3. Render with **fonts blocked entirely.** Icons and layered type must not take the
    interface with them.
 4. Run a screen reader over it. Nothing should be announced as a codepoint, and
@@ -154,9 +158,9 @@ do not control the artwork; they carry a screen-reader name that is often verbos
 
 ```
 Purpose: <brand expression | information | decoration>
-Technique: <layer font | COLRv1 | OT-SVG ✗ | bitmap | SVG | icon font>
+Technique: <layer font | COLRv1 | OT-SVG | bitmap | SVG | icon font>
   because <reason>
-Fallback (no COLR support): <what renders> — acceptable: <yes/no>
+Fallback (chosen format unsupported): <observed result and target> — acceptable: <yes/no>
 Fonts-blocked behaviour: <what renders>
 A11y: decorative → aria-hidden | meaningful → <accessible name>
 Contrast at worst point: <ratio>
@@ -173,31 +177,31 @@ Payload: <n> KB for <n> glyphs used
 > copy needs `aria-hidden` and the alignment is brittle at fluid sizes. A **COLRv1**
 > colour font keeps it to one text node with real gradients, and `font-palette` lets
 > dark mode re-theme it without a second file. Recommending COLRv1 — but the
-> deciding question is Safari, which falls back to a single solid colour. Design that
-> flat state first and confirm the brand still holds; if it doesn't, the effect is
-> wrong for this surface regardless of technique.
+> deciding question is target-browser support and what this particular font renders
+> when unsupported. Verify the base outlines or supply an explicit fallback font;
+> confirm that the observed state remains readable and fits the brand.
 
 **"Should we use an icon font or SVG for our 40 product icons?"**
 
 > SVG. Forty icons doesn't justify the icon-font tradeoffs: PUA codepoints that
-> screen readers mangle, icons disappearing entirely if the font fails, single-colour
-> only, and shipping the whole set to use a subset. The one case that would flip this
+> screen readers mangle, icons disappearing if the font fails, ordinary monochrome
+> glyphs, and shipping the whole set to use a subset. The one case that would flip this
 > is icons inlined mid-sentence that must inherit size, colour, and baseline
 > automatically — that's genuine glyph behaviour and SVG handles it worse. Not the
 > case here.
 
 ## 9. Counterexamples
 
-- ❌ "Use an OT-SVG colour font for the hero." — Chromium has said it will never
-  support OT-SVG. Most of your traffic gets flat colour.
+- ❌ "Use an OT-SVG colour font for the hero without checking target support." —
+  An unsupported format does not guarantee readable flat-colour fallback.
 - ❌ "Colour fonts degrade gracefully, so no fallback design is needed." — The
-  fallback *is* a design state; Safari users only see it.
+  fallback *is* a design state; verify it with the actual font and target renderer.
 - ❌ "The icon is obvious, it doesn't need a label." — Obvious to sighted users
   looking at it. A screen reader gets a codepoint.
 - ❌ `aria-hidden="true"` on an icon that is the button's only content. — Now the
   button has no accessible name at all.
 - ❌ "We'll ship two font files for light and dark palettes." — `font-palette` and
-  `@font-palette-values` re-theme one COLR file.
+  `@font-palette-values` can re-theme supported palette-based colours; verify the font.
 - ❌ Layering four copies of a headline in the DOM with no `aria-hidden`. — The
   headline is read four times.
 - ❌ "✅ means the step is complete." — with no text saying so.
@@ -213,11 +217,14 @@ Payload: <n> KB for <n> glyphs used
   *Lustik* (Back/Front styles resolving into legible characters) and Clarke's *Rig
   Shaded* (Face, Extrude, Shadow, Shading building a three-dimensional object);
   blend modes; colour fonts keeping all options in one file.
-- **Current standards take precedence on support.** COLRv1 renders in Chromium,
-  Firefox, and Samsung Internet; **Safari falls back to a single solid colour**.
-  Chromium has stated it will not support OpenType-SVG; Firefox has signalled it may
-  drop it. COLRv1 carries a paint graph (linear/radial/sweep gradients, transforms,
-  compositing, blending) plus variation data for the colour construction itself.
-  MDN — [`font-palette`](https://developer.mozilla.org/en-US/docs/Web/CSS/font-palette),
-  [`@font-palette-values`](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-palette-values).
+- **Current specifications and tested rendering take precedence.** Consult
+  [OpenType COLR](https://learn.microsoft.com/en-us/typography/opentype/spec/colr)
+  for base-outline fallback and colour construction, and
+  [CPAL](https://learn.microsoft.com/en-us/typography/opentype/spec/cpal) for palette
+  use by COLR and SVG. Verify current format support against
+  [MDN browser compatibility data](https://github.com/mdn/browser-compat-data/blob/main/css/at-rules/font-face.json).
+  CSS property support alone does not establish format or font-specific support:
+  [CSS Fonts palette specification](https://drafts.csswg.org/css-fonts-4/#font-palette-prop),
+  MDN [`font-palette`](https://developer.mozilla.org/en-US/docs/Web/CSS/font-palette)
+  and [`@font-palette-values`](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-palette-values).
 - WCAG 2.2 §1.1.1 (non-text content), §1.4.1 (use of colour), §1.4.3 (contrast).
