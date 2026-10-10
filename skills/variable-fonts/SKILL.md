@@ -39,11 +39,15 @@ Powerful and frequently misused — the most common error is reaching for
   | `ital` | `font-style: italic` |
   | `slnt` | `font-style: oblique <angle>` |
 
-  `font-variation-settings` is a low-level override. It **does not inherit
-  predictably per-axis** — setting it replaces the whole list, so a child that sets
-  one axis loses every other. It also bypasses the cascade's understanding of
-  weight, breaking things like `font-synthesis` control and browser bolding logic.
-  Reserve it for **custom (unregistered) axes only**.
+  `font-variation-settings` is a low-level override. Setting it replaces the
+  whole list rather than merging individual axes, so a child that sets one axis
+  loses the parent's other explicit axis settings. Explicit axis values override
+  the corresponding high-level font properties. Prefer standard properties when
+  they express the desired control; use the low-level property for custom axes
+  or values unavailable through a standard property. For example, a deliberate
+  numeric `opsz` override is valid: `font-optical-sizing` only accepts `auto` or
+  `none`. Document the reason, check the font's range, and preserve any other
+  explicit axes when changing the list.
 
 - **Declare the axis range in `@font-face`.** `font-weight: 100 900` on the
   `@font-face` rule tells the browser the file covers that span; omit it and the
@@ -143,7 +147,8 @@ still has to load. The metric-matched-fallback technique in
 3. **Measure both**: variable file vs. sum of the statics, after subsetting.
 4. Confirm `@font-face` declares each axis range.
 5. Confirm standard properties are used for registered axes; `font-variation-settings`
-   only for custom axes.
+   is used only where those properties cannot express the requested control
+   (custom axes or a deliberate numeric `opsz` override, for example).
 6. Check inheritance: set an axis on a parent, verify a child that changes one axis
    retains the rest.
 7. If `opsz` exists, verify `font-optical-sizing: auto` and compare display vs. text
@@ -187,8 +192,9 @@ Reduced-motion respected: <yes/n-a>
 
 ## 9. Counterexamples
 
-- ❌ `font-variation-settings: "wght" 700` when `font-weight: 700` exists. — Breaks
-  inheritance and cascade behavior.
+- ❌ Unnecessarily setting `font-variation-settings: "wght" 700` when
+  `font-weight: 700` expresses the same intent. — Adds a low-level override and
+  complicates inheritance of the other explicit axes.
 - ❌ "Variable fonts are always smaller." — They carry the full design space; two
   weights are often cheaper as statics.
 - ❌ Omitting `font-weight: 100 900` from `@font-face`. — Invites faux bold.
