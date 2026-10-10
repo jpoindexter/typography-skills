@@ -102,9 +102,10 @@ Everything above describes vector outlines. The reader sees pixels, and the
 conversion is lossy and outside your control. Rutter's framing: removing obstacles
 to reading "means understanding how letterforms end up represented on the screen."
 
-**Resolution sets the floor.** Most laptop and desktop screens sit around **140 ppi**;
-high-resolution displays reach a few hundred; print runs at 600 dpi and up. A face
-whose thins survive on paper may not have enough pixels to exist on a 140 ppi panel.
+**Resolution sets the floor.** Rutter's 2017 screen/print density comparisons are
+historical examples, not current hardware targets. Check the actual display,
+device-pixel ratio, zoom and rendering pipeline. A face whose thins survive on
+paper may not survive the smallest supported screen rendering.
 
 **Rasterisation is lossy and subjective.** Turning vectors into dots "is inherently
 lossy. Consequently, letterforms can be distorted or even made illegible when
@@ -127,11 +128,14 @@ fonts than for black and white rendering, and is much better than no hinting at 
 
 **The platform differences that actually matter:**
 
-- **Only Windows uses hinting.** iOS, macOS, Android, and Linux make no use of hints.
-  A beautifully hinted font buys you nothing on most of your traffic.
-- **Handheld devices use greyscale smoothing, not subpixel anti-aliasing** — physical
-  subpixels sit in a row, so subpixel antialiasing doesn't work well once the device
-  rotates. Windows-based mobile combines greyscale smoothing with hinting.
+- **Hinting depends on the rendering engine, font and configuration, not an
+  OS-only rule.** FreeType supports native hinting and auto-hinting, with load
+  flags to disable or select them. Fontconfig exposes `hinting`, `hintstyle` and
+  `autohint` settings. Check the actual target pipeline rather than assuming
+  hinting is exclusive to Windows or irrelevant elsewhere.
+- **Smoothing is also pipeline-dependent.** Subpixel geometry and rotation affect
+  whether subpixel rendering is appropriate. Verify the supported renderer's
+  behavior rather than treating an older mobile-platform summary as a guarantee.
 
 **What this means for choosing and setting type:**
 
@@ -292,9 +296,12 @@ size?"**
   (~140 ppi typical desktop vs 600 dpi print); rasterisation as "inherently lossy" and
   subjective across engines; each OS having a text rendering engine and each browser
   choosing one, so two browsers on one OS can differ; hinting and autohinting, with
-  Tim Ahrens on diminishing returns and Verdana taking "weeks or months"; **only
-  Windows uses hinting**; handhelds using greyscale smoothing rather than subpixel
-  anti-aliasing because subpixels sit in a row and fail on rotation.
+  Tim Ahrens on diminishing returns and Verdana taking "weeks or months";
+  historical platform/hinting summaries require current engine verification;
+  handheld greyscale smoothing and rotation constraints.
+- [FreeType glyph loading and hinting flags](https://freetype.org/freetype2/docs/reference/ft2-glyph_retrieval.html)
+  and [Fontconfig properties](https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-user.html)
+  — current implementation references for configurable hinting behavior.
 - Lupton, *Thinking with Type* 3e — anatomy and alignment; cap height, x-height,
   baseline as the Latin axes; other writing systems' different points of focus.
 - Lupton (ed.), *Type on Screen* — x-height, descender overhang, and why longer
